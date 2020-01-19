@@ -12,7 +12,7 @@ public class Genetic {
     private int populationCount;
     private int matrixSize;
     private int bestKnownCost;
-
+    int countOfErrors;
     public Genetic(String path, int populationCount, int bestKnownCost) {
         fileRead = new FileRead(path);
         population = new ArrayList<>();
@@ -94,24 +94,10 @@ public class Genetic {
         return count;
 
     }
-
-    public ArrayList<Unit> cross1(Unit a, Unit b, int lengthProb) {     //trzeb policzyć koszt
-        Unit childA = new Unit(), childB = new Unit();
-        ArrayList<Integer> pathChildA = new ArrayList<>(), pathChildB = new ArrayList<>();
-        int tempA = -1, tempB = -1, countOfReSign;
-        int duplicatedValueA, duplicatedValueB;
-        Integer toBeInsertedA, toBeInsertedB;
-
-        boolean error = false;
-
-        for (int i = 0; i < matrixSize; i++) {
-            pathChildA.add(0);
-            pathChildB.add(0);
-        }
-
+    public int generateSectionSize(int lengthProb){
         boolean section = true;
         int sectionSize = 0;
-        int locus = -1;
+
 
         while (section && (sectionSize < (matrixSize - 2))) {       //DLUGOSC SEKCJI
             if (randomNum(101) < lengthProb) {
@@ -120,6 +106,24 @@ public class Genetic {
                 section = false;
             }
         }
+        return sectionSize;
+    }
+
+    public ArrayList<Unit> cross1(Unit a, Unit b, int lengthProb) {     //trzeb policzyć koszt
+        Unit childA = new Unit(), childB = new Unit();
+        ArrayList<Integer> pathChildA = new ArrayList<>(), pathChildB = new ArrayList<>();
+        int tempA = -1, tempB = -1;
+        int duplicatedValueA, duplicatedValueB;
+        int sectionSize = 0;
+        int locus = -1;
+        boolean correctionA=false;
+        boolean correctionB=false;
+        sectionSize=generateSectionSize(lengthProb);
+        for (int i = 0; i < matrixSize; i++) {
+            pathChildA.add(0);
+            pathChildB.add(0);
+        }
+
         if (sectionSize != 0) {                                     //NAPRAWA LOCUS
             locus = randomNum(matrixSize - sectionSize);
             if (locus <= 0) {
@@ -155,28 +159,50 @@ public class Genetic {
                     pathChildB.set(k, b.getPath().get(k));
                 }
             }
+            for (int k = 1; k < matrixSize; k++) {
+                if (pathChildA.get(k) == 0) {
+                    pathChildA=a.getPath();
+                    countOfErrors++;
+                     correctionA=true;
+                }
+                if(pathChildB.get(k)==0){
+                    pathChildB=b.getPath();
+                    correctionB=true;
+                    countOfErrors++;
+                }
+            }
             ////////////////////////////////////
-            boolean error1=true,onceMore=false;
-int w=0;
+            boolean error1 = true, onceMore = false;
+            int w = 0;
             for (int i = 1; i < matrixSize; i++) {
                 for (int k = 0; k < sectionSize; k++) {
-                    if((i==1)&&(k==0)){
-                        onceMore=false;
+                    if ((i == 1) && (k == 0)) {
+                        onceMore = false;
                     }
                     if ((i < locus) || (i > locus + sectionSize - 1)) {
-                        if(pathChildA.get(i).equals(pathChildA.get(locus + k))){
-                            pathChildA.set(i,a.getPath().get(searchValue(b.getPath(),pathChildA.get(i))));//na pozycji 'i' ma byc wartość z 'a' na pozycji na ktorej 'b' ma wartośc aktualnej pozycji a(i).
-                            onceMore=true;
+                        if (pathChildA.get(i).equals(pathChildA.get(locus + k))) {
+                            pathChildA.set(i, a.getPath().get(searchValue(b.getPath(), pathChildA.get(i))));//na pozycji 'i' ma byc wartość z 'a' na pozycji na ktorej 'b' ma wartośc aktualnej pozycji a(i).
+                            onceMore = true;
                         }
-                        if(pathChildB.get(i).equals(pathChildB.get(locus + k))){
-                            pathChildB.set(i,b.getPath().get(searchValue(a.getPath(),pathChildB.get(i))));//na pozycji 'i' ma byc wartość z 'a' na pozycji na ktorej 'b' ma wartośc aktualnej pozycji a(i).
-                            onceMore=true;
+                        try {
+                            if (pathChildB.get(i).equals(pathChildB.get(locus + k))) {
+                                pathChildB.set(i, b.getPath().get(searchValue(a.getPath(), pathChildB.get(i))));//na pozycji 'i' ma byc wartość z 'a' na pozycji na ktorej 'b' ma wartośc aktualnej pozycji a(i).
+                                onceMore = true;
+                            }
+                        } catch (IndexOutOfBoundsException e) {
+                            System.out.println("sectionSize: "+sectionSize);
+                            System.out.println("locus:"+locus);
+                            System.out.println("i:"+i);
+                            System.out.println(b.getPath().toString());
+                            System.out.println("wartosc szukana"+ pathChildB.get(i));
+                            System.out.println("indeks oczekiwany "+searchValue(a.getPath(), pathChildB.get(i)));
+                            System.out.println("wartość jaka ma byc nadana"+b.getPath().get(searchValue(a.getPath(), pathChildB.get(i))));
                         }
-                        if(onceMore){
-                            i=1;
-                            k=-1;
+                        if (onceMore) {
+                            i = 1;
+                            k = -1;
                             w++;
-                            System.out.println("once more"+w);
+                     //       System.out.println("once more" + w);
                         }
 
                     }
@@ -192,10 +218,20 @@ int w=0;
             childB.setCost(countDistance(pathChildB, true));
         }
 
-            childA.setPath(pathChildA);
-            childB.setPath(pathChildB);
+        childA.setPath(pathChildA);
+        childB.setPath(pathChildB);
+        if(!correctionA){
             childA.setCost(countDistance(pathChildA, true));
+        }
+        else {
+            childB.setCost(100000);
+        }
+        if(!correctionB){
             childB.setCost(countDistance(pathChildB, true));
+        }else {
+            childB.setCost(100000);
+        }
+
 
         ArrayList<Unit> toBeReturned = new ArrayList<>();
         toBeReturned.add(childA);
@@ -208,9 +244,10 @@ int w=0;
 
         return unit;
     }
-    public  int searchValue(ArrayList<Integer>path,int value){
-        for(int i=0;i<path.size();i++){
-            if(path.get(i)==value){
+
+    public int searchValue(ArrayList<Integer> path, int value) {
+        for (int i = 1; i < path.size(); i++) {
+            if (path.get(i) == value) {
                 return i;
             }
         }
@@ -219,16 +256,16 @@ int w=0;
 
     public void toBeDeleted() {
         ArrayList<Integer> indexes = new ArrayList<>();
-        int min = 100000;
+        int min = 1000000;
         int minIndex = -1;
         float avg = 0;
         for (Unit unit : population) {
             avg += unit.getCost();
         }
         avg = avg / population.size();
-        System.out.println("avg=" + avg*0.95);
+       // System.out.println("avg=" + avg * 0.95);
         for (int i = population.size() - 1; i >= 0; i--) {
-            if (population.get(i).getCost() > (avg)) {
+            if (population.get(i).getCost() > (avg*0.999)||(population.get(i).getCost()==100000)) {
                 indexes.add(i);
             } else {
                 if (population.get(i).getCost() < min) {
@@ -291,23 +328,24 @@ int w=0;
                             copyUnitReadyToMate = population.get(k);
                     }
                 }
-                System.out.println("rozmiar populacji po rozmnażaniu to:{" + this.population.size()+"}");
+           //     System.out.println("rozmiar populacji po rozmnażaniu to:{" + this.population.size() + "}");
             }
             //mutacje
             if (mutationProb > randomNum(100)) {
                 int toBeMutated = randomNum(population.size());
                 mutation1(population.get(toBeMutated));
-                System.out.println("mutated");
+             //   System.out.println("mutated");
                 //  population.set(toBeMutated,mutation1(population.get(toBeMutated)));
             }
             //selekcja
             toBeDeleted();
-            System.out.println("rozmiar populacji po selekcji{" + this.population.size()+"}");
+           // System.out.println("rozmiar populacji po selekcji{" + this.population.size() + "}");
             //1. stworzyc osobniki z drogą
             //2. osobniki się mnożą z prawd. ma dojść do floor(n/2) mnożeń
             //3. jest wywoływana funkcja odrzucająca rozwiązania słabsze od średniej
             //4. szansa na mutacje
-            System.out.println("Best Cost:" + bestCost+"\t bestPath:"+bestPath.toString());
+          //  if(bestPath!=null)
+          //  System.out.println("Best Cost:" + bestCost + "\t bestPath:" + bestPath.toString());
         }
         System.out.println(population.size());
         return bestCost;
